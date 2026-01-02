@@ -1,0 +1,77 @@
+import { app, BrowserWindow, nativeTheme, ipcMain } from 'electron'
+
+try {
+  if (process.platform === 'win32' && nativeTheme.shouldUseDarkColors === true) {
+    require('fs').unlinkSync(require('path').join(app.getPath('userData'), 'DevTools Extensions'))
+  }
+} catch (_) { }
+
+/**
+ * Set `__statics` path to static files in production;
+ * The reason we are setting it here is that the path needs to be evaluated at runtime
+ */
+if (process.env.PROD) {
+  global.__statics = __dirname
+  process.env.STATICS = __dirname
+} else {
+  process.env.STATICS = __statics
+}
+
+
+
+let mainWindow
+
+function createWindow () {
+  /**
+   * Initial window options
+   */
+  mainWindow = new BrowserWindow({
+    width: 1000,
+    height: 600,
+    useContentSize: true,
+    frame: false,
+    webPreferences: {
+      webviewTag: true,
+      // Change from /quasar.conf.js > electron > nodeIntegration;
+      // More info: https://quasar.dev/quasar-cli/developing-electron-apps/node-integration
+      nodeIntegration: process.env.QUASAR_NODE_INTEGRATION,
+      nodeIntegrationInWorker: process.env.QUASAR_NODE_INTEGRATION,
+      contextIsolation: false,
+      // More info: /quasar-cli/developing-electron-apps/electron-preload-script
+      // preload: path.resolve(__dirname, 'electron-preload.js')
+    }
+  })
+
+  mainWindow.loadURL(process.env.APP_URL)
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+  })
+
+  mainWindow.webContents.on('ipc-message', (event, channel, data) => {
+    console.log('ipcMessage', channel, data)
+    if (channel == 'window:restore') {
+      mainWindow.isMaximized() ? mainWindow.restore() : mainWindow.maximize()
+    } else if (channel == 'window:minimize') {
+      mainWindow.minimize()
+    } else if (channel == 'window:close') {
+      mainWindow.close()
+    } else if (channel == 'window:zoom') {
+      mainWindow.webContents.setZoomFactor(data)
+    }
+  })
+}
+
+app.on('ready', createWindow)
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
+})
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow()
+  }
+})
